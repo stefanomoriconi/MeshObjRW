@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, macos-latest, ubuntu-latest ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CMake (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          if ($IsWindows) {
+            & cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          } else {
+            & cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          if ($IsWindows) {
+            & cmake --build build --config Release --parallel
+          } else {
+            & cmake --build build --parallel
+          }
+
+      # ---- C test suite ----------------------------------------------------
+      - name: Run C tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: & "$PWD/build/Release/czmesh_tests.exe"
+
+      - name: Run C tests (macOS / Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./build/czmesh_tests
+
+      # ---- Python end-to-end tests ---------------------------------------
+      - name: Run Python tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CZMESH_LIBRARY_PATH: ${{ github.workspace }}\build\Release\czmesh.dll
+        run: python python/test_czmesh_io.py
+
+      - name: Run Python tests (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CZMESH_LIBRARY_PATH: ${{ github.workspace }}/build/libczmesh.dylib
+        run: python python/test_czmesh_io.py
+
+      - name: Run Python tests (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          CZMESH_LIBRARY_PATH: ${{ github.workspace }}/build/libczmesh.so
+        run: python python/test_czmesh_io.py

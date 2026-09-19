@@ -1,0 +1,57 @@
+# ---- Build directories -------------------------------------------------
+build/
+build-*/
+cmake-build-*/
+out/
+dist/
+install/
+
+# ---- C/C++ artifacts ---------------------------------------------------
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.ipdb
+
+# ---- CUDA --------------------------------------------------------------
+*.ptx
+*.cubin
+*.fatbin
+
+# ---- Python ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build_py/
+venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Mesh data (test outputs / user models) ----------------------------
+# Ignore generated .obj / .czobj, but keep any committed fixture files
+# explicitly via negation below if needed.
+*.obj
+*.czobj
+
+# ---- Editors / OS ------------------------------------------------------
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Keep any intentionally-committed sample meshes (un-ignore on demand):
+# !samples/**/*.obj
+# !samples/**/*.czobj
