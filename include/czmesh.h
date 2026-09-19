@@ -11,7 +11,7 @@
  *                   per-corner v/vt//vn syntax; n-gons fan-triangulated)
  *   * Binary czobj: read & write (custom, documented, little-endian, stable)
  *   * Geometry     : bounding box, mesh stats, GPU-friendly flat buffers
- *   * Parallelism : OpenMP two-phase parser / writer when available
+ *   * Parallelism : OpenMP two-phase ASCII reader when available
  *   * GPU         : optional CUDA port (CZMESH_ENABLE_CUDA) for bulk
  *                   copy / normal / stats operations
  *

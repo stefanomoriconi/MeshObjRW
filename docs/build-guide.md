@@ -17,7 +17,7 @@ produces a shared library, a CLI tool, and (optionally) a C test suite.
 |--------|---------|-------------|
 | `CZMESH_BUILD_TESTS` | `ON` | Build the C test suite (`czmesh_tests`). |
 | `CZMESH_BUILD_CLI` | `ON` | Build `czmesh_cli`. |
-| `CZMESH_ENABLE_OPENMP` | `ON` | Parallelise the reader/writer with OpenMP. Degrades gracefully when OpenMP is absent. |
+| `CZMESH_ENABLE_OPENMP` | `ON` | Parallelise the ASCII OBJ reader with OpenMP. Degrades gracefully when OpenMP is absent. |
 | `CZMESH_ENABLE_CUDA` | `OFF` | Compile the optional CUDA kernels (`src/czmesh_cuda.cu`). Requires a CUDA toolkit. |
 
 ---
@@ -131,8 +131,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCZMESH_ENABLE_CUDA=ON
 cmake --build build --parallel
 ```
 
-`czmesh_cli version` will then report `CUDA: enabled (sm_XX)`. If no CUDA
-toolkit is found, configure fails with a clear message.
+`czmesh_cli version` will then report `CUDA: compiled in`. At run time the
+geometry helpers automatically use the GPU when a CUDA device is present,
+and transparently fall back to the CPU path otherwise. If no CUDA toolkit
+(`nvcc`) is found, configure fails with a clear message.
 
 ---
 

@@ -28,10 +28,12 @@ package does not clash with other dependencies in larger projects.
   C++, Python (`ctypes`), and other FFI languages.
 - **Multi-platform** — builds and tests on **Windows (MSVC/Clang)**,
   **macOS**, and **Linux (GCC/Clang)**.
-- **Fast & parallel** — two-phase reader/writer parallelised with **OpenMP**
-  when available (no OpenMP dependency when disabled).
-- **GPU option** — an optional **CUDA** port for bulk copy / normal /
-  statistics operations, gated behind `CZMESH_ENABLE_CUDA` (OFF by default).
+- **Fast & parallel** — the ASCII OBJ **reader** uses a two-phase, line-aligned
+  chunked parse parallelised with **OpenMP** when available (fully functional
+  and dependency-free when OpenMP is absent). The writer is single-threaded.
+- **GPU option** — an optional **CUDA** port for the geometry helpers
+  (bounding box, per-vertex normals, and area/volume statistics), gated
+  behind `CZMESH_ENABLE_CUDA` (OFF by default, transparent CPU fallback).
 - **Geometry helpers** — bounding box, surface area, signed volume, and
   area-weighted per-vertex normal recomputation.
 - **Python** — `czmesh_io`, a thin, dependency-free `ctypes` wrapper exposing
@@ -111,8 +113,8 @@ This produces:
 |--------------|---------|-------------|
 | `CZMESH_BUILD_TESTS` | `ON` | Build the C test suite. |
 | `CZMESH_BUILD_CLI` | `ON` | Build `czmesh_cli`. |
-| `CZMESH_ENABLE_OPENMP` | `ON` | Parallelise reader/writer with OpenMP (no-op if absent). |
-| `CZMESH_ENABLE_CUDA` | `OFF` | Compile the optional CUDA kernels (`src/czmesh_cuda.cu`). Requires `find_package(CUDAToolkit)`. |
+| `CZMESH_ENABLE_OPENMP` | `ON` | Parallelise the ASCII OBJ reader with OpenMP (no-op if absent). |
+| `CZMESH_ENABLE_CUDA` | `OFF` | Compile the optional CUDA kernels (`src/czmesh_cuda.cu`). Requires a CUDA toolkit (`nvcc`) — enabled via CMake's `enable_language(CUDA)`. |
 
 ---
 
