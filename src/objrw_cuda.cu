@@ -1,30 +1,30 @@
 /*
- * czmesh_cuda.cu
+ * objrw_cuda.cu
  * --------------
- * Optional CUDA (GPU) fast paths for the czmesh geometry helpers.
+ * Optional CUDA (GPU) fast paths for the objrw geometry helpers.
  *
  * This translation unit is only compiled when CMake is configured with
- *   -DCZMESH_ENABLE_CUDA=ON
+ *   -DOBJRW_ENABLE_CUDA=ON
  * and a CUDA compiler (nvcc) is available. On this machine it is OFF by
  * default and there is no nvcc, so it is neither compiled nor tested here.
  * It is provided so that, where a CUDA toolchain and device exist, the
  * compute-bound geometry kernels can run on the GPU for larger meshes.
  *
- * The kernels mirror the semantics of the CPU implementations in czmesh.cpp:
+ * The kernels mirror the semantics of the CPU implementations in objrw.cpp:
  *   - bounding_box : per-axis min/max over vertex positions
  *   - compute_normals : per-vertex area-weighted normal accumulation + normalize
  *   - stats         : total surface area + signed volume (divergence theorem)
  *
- * Every host entry point returns a czmesh_status and does a CPU-safe fallback
- * on the *caller* side (see czmesh.cpp) whenever a non-CZMESH_OK code is
+ * Every host entry point returns a objrw_status and does a CPU-safe fallback
+ * on the *caller* side (see objrw.cpp) whenever a non-OBJRW_OK code is
  * returned, so the library keeps working on machines without a usable GPU.
  */
-#include "czmesh_internal.h"
+#include "objrw_internal.h"
 
 #include <cuda_runtime.h>
 #include <cstdint>
 
-namespace czm {
+namespace objrw {
 
 /* ------------------------------------------------------------------ */
 /*  Runtime helpers                                                    */
@@ -72,30 +72,30 @@ __global__ void bbox_kernel(const float *positions, uint64_t n,
     atomicMin(&d_min[2], v2); atomicMax(&d_max[2], v2);
 }
 
-czmesh_status cuda_bounding_box(const float *positions, uint64_t n,
+objrw_status cuda_bounding_box(const float *positions, uint64_t n,
                                 float min_out[3], float max_out[3]) {
-    if (!positions || n == 0) return CZMESH_ERR_NULL_POINTER;
+    if (!positions || n == 0) return OBJRW_ERR_NULL_POINTER;
 
     float *d_pos = nullptr;
     float *d_min = nullptr;
     float *d_max = nullptr;
-    if (!check(cudaMalloc(&d_pos, n * 3 * sizeof(float)))) return CZMESH_ERR_INTERNAL;
-    if (!check(cudaMalloc(&d_min, 3 * sizeof(float))))    { cudaFree(d_pos); return CZMESH_ERR_INTERNAL; }
-    if (!check(cudaMalloc(&d_max, 3 * sizeof(float))))    { cudaFree(d_pos); cudaFree(d_min); return CZMESH_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_pos, n * 3 * sizeof(float)))) return OBJRW_ERR_INTERNAL;
+    if (!check(cudaMalloc(&d_min, 3 * sizeof(float))))    { cudaFree(d_pos); return OBJRW_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_max, 3 * sizeof(float))))    { cudaFree(d_pos); cudaFree(d_min); return OBJRW_ERR_INTERNAL; }
 
     if (!check(cudaMemcpy(d_pos, positions, n * 3 * sizeof(float), cudaMemcpyHostToDevice))) {
         cudaFree(d_pos); cudaFree(d_min); cudaFree(d_max);
-        return CZMESH_ERR_INTERNAL;
+        return OBJRW_ERR_INTERNAL;
     }
 
     /* Seed min/max with the first vertex, then atomically reduce the rest. */
     if (!check(cudaMemcpy(d_min, positions, 3 * sizeof(float), cudaMemcpyHostToDevice))) {
         cudaFree(d_pos); cudaFree(d_min); cudaFree(d_max);
-        return CZMESH_ERR_INTERNAL;
+        return OBJRW_ERR_INTERNAL;
     }
     if (!check(cudaMemcpy(d_max, positions, 3 * sizeof(float), cudaMemcpyHostToDevice))) {
         cudaFree(d_pos); cudaFree(d_min); cudaFree(d_max);
-        return CZMESH_ERR_INTERNAL;
+        return OBJRW_ERR_INTERNAL;
     }
 
     bbox_kernel<<<grid_size(n), kBlock>>>(d_pos, n, d_min, d_max);
@@ -106,9 +106,9 @@ czmesh_status cuda_bounding_box(const float *positions, uint64_t n,
 
     cudaFree(d_pos); cudaFree(d_min); cudaFree(d_max);
 
-    if (!ok) return CZMESH_ERR_INTERNAL;
+    if (!ok) return OBJRW_ERR_INTERNAL;
     for (int k = 0; k < 3; ++k) { min_out[k] = h_min[k]; max_out[k] = h_max[k]; }
-    return CZMESH_OK;
+    return OBJRW_OK;
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,17 +158,17 @@ __global__ void normalize_kernel(float *acc, uint64_t nv) {
     }
 }
 
-czmesh_status cuda_compute_normals(const float *positions, const int32_t *tri_pos,
+objrw_status cuda_compute_normals(const float *positions, const int32_t *tri_pos,
                                    uint64_t nv, uint64_t ntri, float *normals_out) {
-    if (!positions || !tri_pos || !normals_out) return CZMESH_ERR_NULL_POINTER;
-    if (ntri == 0 || nv == 0) return CZMESH_ERR_EMPTY;
+    if (!positions || !tri_pos || !normals_out) return OBJRW_ERR_NULL_POINTER;
+    if (ntri == 0 || nv == 0) return OBJRW_ERR_EMPTY;
 
     float *d_pos = nullptr;
     float *d_tri = nullptr;
     float *d_acc = nullptr;
-    if (!check(cudaMalloc(&d_pos, nv * 3 * sizeof(float)))) return CZMESH_ERR_INTERNAL;
-    if (!check(cudaMalloc(&d_tri, ntri * 3 * sizeof(float)))) { cudaFree(d_pos); return CZMESH_ERR_INTERNAL; }
-    if (!check(cudaMalloc(&d_acc, nv * 3 * sizeof(float)))) { cudaFree(d_pos); cudaFree(d_tri); return CZMESH_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_pos, nv * 3 * sizeof(float)))) return OBJRW_ERR_INTERNAL;
+    if (!check(cudaMalloc(&d_tri, ntri * 3 * sizeof(float)))) { cudaFree(d_pos); return OBJRW_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_acc, nv * 3 * sizeof(float)))) { cudaFree(d_pos); cudaFree(d_tri); return OBJRW_ERR_INTERNAL; }
 
     bool ok = true;
     ok = ok && check(cudaMemcpy(d_pos, positions, nv * 3 * sizeof(float), cudaMemcpyHostToDevice));
@@ -182,7 +182,7 @@ czmesh_status cuda_compute_normals(const float *positions, const int32_t *tri_po
     }
 
     cudaFree(d_pos); cudaFree(d_tri); cudaFree(d_acc);
-    return ok ? CZMESH_OK : CZMESH_ERR_INTERNAL;
+    return ok ? OBJRW_OK : OBJRW_ERR_INTERNAL;
 }
 
 /* ------------------------------------------------------------------ */
@@ -213,17 +213,17 @@ __global__ void stats_kernel(const float *positions, const int32_t *tri_pos,
     atomicAdd(d_volume, (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6.0);
 }
 
-czmesh_status cuda_stats(const float *positions, const int32_t *tri_pos,
+objrw_status cuda_stats(const float *positions, const int32_t *tri_pos,
                          uint64_t nv, uint64_t ntri, double *area_out, double *volume_out) {
-    if (!positions || !tri_pos) return CZMESH_ERR_NULL_POINTER;
-    if (nv == 0 || ntri == 0) return CZMESH_ERR_EMPTY;
+    if (!positions || !tri_pos) return OBJRW_ERR_NULL_POINTER;
+    if (nv == 0 || ntri == 0) return OBJRW_ERR_EMPTY;
 
     float *d_pos = nullptr;
     int32_t *d_tri = nullptr;
     double *d_out = nullptr; /* two doubles: area, volume */
-    if (!check(cudaMalloc(&d_pos, nv * 3 * sizeof(float)))) return CZMESH_ERR_INTERNAL;
-    if (!check(cudaMalloc(&d_tri, ntri * 3 * sizeof(int32_t)))) { cudaFree(d_pos); return CZMESH_ERR_INTERNAL; }
-    if (!check(cudaMalloc(&d_out, 2 * sizeof(double)))) { cudaFree(d_pos); cudaFree(d_tri); return CZMESH_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_pos, nv * 3 * sizeof(float)))) return OBJRW_ERR_INTERNAL;
+    if (!check(cudaMalloc(&d_tri, ntri * 3 * sizeof(int32_t)))) { cudaFree(d_pos); return OBJRW_ERR_INTERNAL; }
+    if (!check(cudaMalloc(&d_out, 2 * sizeof(double)))) { cudaFree(d_pos); cudaFree(d_tri); return OBJRW_ERR_INTERNAL; }
 
     bool ok = true;
     ok = ok && check(cudaMemcpy(d_pos, positions, nv * 3 * sizeof(float), cudaMemcpyHostToDevice));
@@ -238,7 +238,7 @@ czmesh_status cuda_stats(const float *positions, const int32_t *tri_pos,
     }
 
     cudaFree(d_pos); cudaFree(d_tri); cudaFree(d_out);
-    return ok ? CZMESH_OK : CZMESH_ERR_INTERNAL;
+    return ok ? OBJRW_OK : OBJRW_ERR_INTERNAL;
 }
 
-} // namespace czm
+} // namespace objrw

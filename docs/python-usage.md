@@ -1,7 +1,7 @@
-# `czmesh_io` Python usage
+# `objrw_io` Python usage
 
-`czmesh_io` is a thin, **dependency-free** `ctypes` wrapper around the
-`czmesh` shared library. It exposes a `Mesh` object plus module-level
+`objrw_io` is a thin, **dependency-free** `ctypes` wrapper around the
+`objrw` shared library. It exposes a `Mesh` object plus module-level
 `read` / `write` helpers, and requires only the standard library
 (`ctypes`, `os`, `pathlib`).
 
@@ -13,11 +13,11 @@
 
 The loader finds the shared library in this order:
 
-1. **`CZMESH_LIBRARY_PATH`** — explicit override (a file path, or a directory
+1. **`OBJRW_LIBRARY_PATH`** — explicit override (a file path, or a directory
    containing the library).
 2. **Relative search** — common locations next to the package, e.g.
    `build/`, `build/Release`, `build/Debug`, `dist/`.
-3. **System search** — `ctypes.util.find_library("czmesh")` (honours
+3. **System search** — `ctypes.util.find_library("objrw")` (honours
    `PATH` / `LD_LIBRARY_PATH` / `DYLD_LIBRARY_PATH`).
 
 Typical setups:
@@ -26,23 +26,23 @@ Typical setups:
 # Windows (PowerShell) — after building with CMake
 $env:PATH = "$PWD\build\Release;" + $env:PATH
 # or point directly:
-$env:CZMESH_LIBRARY_PATH = "$PWD\build\Release\czmesh.dll"
+$env:OBJRW_LIBRARY_PATH = "$PWD\build\Release\objrw.dll"
 ```
 
 ```sh
 # macOS / Linux
 export PATH="$PWD/build:$PATH"
 # or:
-export CZMESH_LIBRARY_PATH="$PWD/build/libczmesh.dylib"   # .so on Linux
+export OBJRW_LIBRARY_PATH="$PWD/build/libobjrw.dylib"   # .so on Linux
 ```
 
 ## Quick start
 
 ```python
-import czmesh_io
+import objrw_io
 
-# read: encoding is auto-detected (ASCII .obj or binary .czobj)
-m = czmesh_io.read("model.obj")
+# read: encoding is auto-detected (ASCII .obj or binary .objrw)
+m = objrw_io.read("model.obj")
 
 print(m.num_vertices, m.num_triangles)
 print(m.object_name)
@@ -54,7 +54,7 @@ m.compute_normals()              # area-weighted per-vertex normals
 
 # write: pick the encoding explicitly
 m.write_ascii("out.obj")
-m.write_binary("out.czobj")
+m.write_binary("out.objrw")
 ```
 
 ### `Mesh` reference
@@ -78,12 +78,12 @@ m.write_binary("out.czobj")
 | `compute_normals()` | Recompute area-weighted per-vertex normals. |
 | `stats()` | `(area, signed_volume)`. |
 | `write_ascii(path)` | Save as ASCII OBJ. |
-| `write_binary(path)` | Save as binary `czobj`. |
+| `write_binary(path)` | Save as binary `objrw`. |
 
 ### Building a mesh from scratch
 
 ```python
-m = czmesh_io.Mesh()
+m = objrw_io.Mesh()
 m.object_name = "my_mesh"
 
 i0 = m.add_vertex(0.0, 0.0, 0.0)
@@ -96,15 +96,15 @@ m.write_ascii("built.obj")
 
 ### Error handling
 
-All failures raise `czmesh_io.CZMeshError`, which carries a numeric `.code`
-(matching the C status enum) and a `.message` (from `czmesh_last_error()`).
+All failures raise `objrw_io.OBJRWError`, which carries a numeric `.code`
+(matching the C status enum) and a `.message` (from `objrw_last_error()`).
 
 ```python
-from czmesh_io import CZMeshError
+from objrw_io import OBJRWError
 
 try:
-    m = czmesh_io.read("missing.obj")
-except CZMeshError as e:
+    m = objrw_io.read("missing.obj")
+except OBJRWError as e:
     print(e.code, e.message)     # e.g. 3 "could not open file for reading"
 ```
 
@@ -127,7 +127,7 @@ except CZMeshError as e:
 released on `__exit__` and also by the garbage collector.
 
 ```python
-with czmesh_io.read("model.obj") as m:
+with objrw_io.read("model.obj") as m:
     print(m.stats())
 # handle already released here
 ```
@@ -135,7 +135,7 @@ with czmesh_io.read("model.obj") as m:
 ## Running the tests
 
 ```sh
-python python/test_czmesh_io.py
+python python/test_objrw_io.py
 ```
 
 The suite builds a reference unit cube in-process, writes it to both
@@ -145,7 +145,7 @@ success.
 
 ## Troubleshooting
 
-- **`OSError: czmesh shared library not found`** — set `CZMESH_LIBRARY_PATH`
+- **`OSError: objrw shared library not found`** — set `OBJRW_LIBRARY_PATH`
   or add the build directory to `PATH`.
 - **`ctypes.ArgumentError ... wrong type`** — you may be running an older
   build of the library; rebuild after header changes.

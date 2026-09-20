@@ -39,10 +39,10 @@ venv/
 .ruff_cache/
 
 # ---- Mesh data (test outputs / user models) ----------------------------
-# Ignore generated .obj / .czobj, but keep any committed fixture files
+# Ignore generated .obj / .objrw, but keep any committed fixture files
 # explicitly via negation below if needed.
 *.obj
-*.czobj
+*.objrw
 
 # ---- Editors / OS ------------------------------------------------------
 .vs/
@@ -54,4 +54,4 @@ desktop.ini
 
 # Keep any intentionally-committed sample meshes (un-ignore on demand):
 # !samples/**/*.obj
-# !samples/**/*.czobj
+# !samples/**/*.objrw

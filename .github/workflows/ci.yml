@@ -55,31 +55,31 @@ jobs:
       - name: Run C tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: & "$PWD/build/Release/czmesh_tests.exe"
+        run: & "$PWD/build/Release/objrw_tests.exe"
 
       - name: Run C tests (macOS / Linux)
         if: runner.os != 'Windows'
         shell: bash
-        run: ./build/czmesh_tests
+        run: ./build/objrw_tests
 
       # ---- Python end-to-end tests ---------------------------------------
       - name: Run Python tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          CZMESH_LIBRARY_PATH: ${{ github.workspace }}\build\Release\czmesh.dll
-        run: python python/test_czmesh_io.py
+          OBJRW_LIBRARY_PATH: ${{ github.workspace }}\build\Release\objrw.dll
+        run: python python/test_objrw_io.py
 
       - name: Run Python tests (macOS)
         if: runner.os == 'macOS'
         shell: bash
         env:
-          CZMESH_LIBRARY_PATH: ${{ github.workspace }}/build/libczmesh.dylib
-        run: python python/test_czmesh_io.py
+          OBJRW_LIBRARY_PATH: ${{ github.workspace }}/build/libobjrw.dylib
+        run: python python/test_objrw_io.py
 
       - name: Run Python tests (Linux)
         if: runner.os == 'Linux'
         shell: bash
         env:
-          CZMESH_LIBRARY_PATH: ${{ github.workspace }}/build/libczmesh.so
-        run: python python/test_czmesh_io.py
+          OBJRW_LIBRARY_PATH: ${{ github.workspace }}/build/libobjrw.so
+        run: python python/test_objrw_io.py

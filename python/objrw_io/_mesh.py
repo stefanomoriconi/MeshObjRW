@@ -1,10 +1,10 @@
-"""High-level Python object model for czmesh.
+"""High-level Python object model for objrw.
 
 This module exposes :class:`Mesh` and the module-level :func:`read` /
 :func:`read_ascii` / :func:`read_binary` / :func:`write_ascii` /
 :func:`write_binary` helpers that most users will want.
 
-A :class:`Mesh` is a thin, safe wrapper around a C ``czmesh_mesh_t*``.  It
+A :class:`Mesh` is a thin, safe wrapper around a C ``objrw_mesh_t*``.  It
 owns the underlying memory: when the object is closed (or garbage collected)
 the C mesh is released, so Python-side buffers never outlive it and there is
 no cross-allocator mismatch.
@@ -16,21 +16,21 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
-from ._ctypes import CZMeshLibrary, CZMESH_NONE
+from ._ctypes import OBJRWLibrary, OBJRW_NONE
 
 
 class Mesh:
-    """A triangular mesh backed by a C ``czmesh_mesh_t*``.
+    """A triangular mesh backed by a C ``objrw_mesh_t*``.
 
     Parameters
     ----------
     library:
-        Optional :class:`czmesh_io._ctypes.CZMeshLibrary` instance to reuse.
+        Optional :class:`objrw_io._ctypes.OBJRWLibrary` instance to reuse.
         When omitted, a shared library handle is loaded (and cached).
     """
 
-    def __init__(self, library: Optional[CZMeshLibrary] = None) -> None:
-        self._lib = library or CZMeshLibrary()
+    def __init__(self, library: Optional[OBJRWLibrary] = None) -> None:
+        self._lib = library or OBJRWLibrary()
         self._ptr = self._lib.create()
         self._closed = False
 
@@ -102,7 +102,7 @@ class Mesh:
     def triangles(self) -> List[Tuple[int, int, int, int, int, int, int, int, int]]:
         """Triangles as a list of 9-int tuples ``(p0..p2, t0..t2, n0..n2)``.
 
-        A value of ``-1`` (``CZMESH_NONE``) means the corresponding
+        A value of ``-1`` (``OBJRW_NONE``) means the corresponding
         texcoord/normal index is absent for that face.
         """
         p = self._lib.tri_pos(self._ptr)
@@ -138,11 +138,11 @@ class Mesh:
 
     def add_triangle(self,
                      p0: int, p1: int, p2: int,
-                     t0: int = CZMESH_NONE, t1: int = CZMESH_NONE, t2: int = CZMESH_NONE,
-                     n0: int = CZMESH_NONE, n1: int = CZMESH_NONE, n2: int = CZMESH_NONE) -> int:
+                     t0: int = OBJRW_NONE, t1: int = OBJRW_NONE, t2: int = OBJRW_NONE,
+                     n0: int = OBJRW_NONE, n1: int = OBJRW_NONE, n2: int = OBJRW_NONE) -> int:
         """Append a triangle; returns its 0-based index.
 
-        Absent texcoord/normal indices default to ``-1`` (``CZMESH_NONE``).
+        Absent texcoord/normal indices default to ``-1`` (``OBJRW_NONE``).
         """
         idx = self.num_triangles
         self._lib.push_triangle(self._ptr, p0, p1, p2, t0, t1, t2, n0, n1, n2)
@@ -163,7 +163,7 @@ class Mesh:
 
     # -- I/O ---------------------------------------------------------------
     def write(self, path: str) -> None:
-        """Write as ASCII OBJ (the czmesh default for :func:`czmesh_write`)."""
+        """Write as ASCII OBJ (the objrw default for :func:`objrw_write`)."""
         self._lib.write(path, self._ptr)
 
     def write_ascii(self, path: str) -> None:
@@ -171,7 +171,7 @@ class Mesh:
         self._lib.write_ascii(path, self._ptr)
 
     def write_binary(self, path: str) -> None:
-        """Write the mesh as a ``.czobj`` binary file."""
+        """Write the mesh as a ``.objrw`` binary file."""
         self._lib.write_binary(path, self._ptr)
 
     # -- misc --------------------------------------------------------------
@@ -195,12 +195,12 @@ class Mesh:
                 f"triangles={self.num_triangles})")
 
 
-def _new_mesh(library: Optional[CZMeshLibrary] = None) -> Mesh:
+def _new_mesh(library: Optional[OBJRWLibrary] = None) -> Mesh:
     return Mesh(library)
 
 
-def read(path: str, library: Optional[CZMeshLibrary] = None) -> Mesh:
-    """Read a mesh, auto-detecting ASCII OBJ vs. binary ``.czobj``."""
+def read(path: str, library: Optional[OBJRWLibrary] = None) -> Mesh:
+    """Read a mesh, auto-detecting ASCII OBJ vs. binary ``.objrw``."""
     m = _new_mesh(library)
     try:
         m._lib.read(path, m._ptr)
@@ -210,7 +210,7 @@ def read(path: str, library: Optional[CZMeshLibrary] = None) -> Mesh:
     return m
 
 
-def read_ascii(path: str, library: Optional[CZMeshLibrary] = None) -> Mesh:
+def read_ascii(path: str, library: Optional[OBJRWLibrary] = None) -> Mesh:
     """Read an ASCII Wavefront OBJ file explicitly."""
     m = _new_mesh(library)
     try:
@@ -221,8 +221,8 @@ def read_ascii(path: str, library: Optional[CZMeshLibrary] = None) -> Mesh:
     return m
 
 
-def read_binary(path: str, library: Optional[CZMeshLibrary] = None) -> Mesh:
-    """Read a binary ``.czobj`` file explicitly."""
+def read_binary(path: str, library: Optional[OBJRWLibrary] = None) -> Mesh:
+    """Read a binary ``.objrw`` file explicitly."""
     m = _new_mesh(library)
     try:
         m._lib.read_binary(path, m._ptr)
@@ -237,12 +237,12 @@ def write_ascii(path: str, mesh: Mesh) -> None:
     if isinstance(mesh, Mesh):
         mesh.write_ascii(path)
     else:
-        raise TypeError("write_ascii expects a czmesh_io.Mesh instance")
+        raise TypeError("write_ascii expects a objrw_io.Mesh instance")
 
 
 def write_binary(path: str, mesh: Mesh) -> None:
-    """Write ``mesh`` as a binary ``.czobj`` file."""
+    """Write ``mesh`` as a binary ``.objrw`` file."""
     if isinstance(mesh, Mesh):
         mesh.write_binary(path)
     else:
-        raise TypeError("write_binary expects a czmesh_io.Mesh instance")
+        raise TypeError("write_binary expects a objrw_io.Mesh instance")

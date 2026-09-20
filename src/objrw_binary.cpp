@@ -1,11 +1,11 @@
 /*
- * czmesh_binary.cpp
+ * objrw_binary.cpp
  * -----------------
- * Compact binary mesh format "czobj" plus geometry helpers
+ * Compact binary mesh format "objrw" plus geometry helpers
  * (bounding box, stats, and area-weighted per-vertex normals).
  *
- * czobj layout (all little-endian, fixed-size):
- *   byte[8]  magic        "CZOBJ\0\0\0"
+ * objrw layout (all little-endian, fixed-size):
+ *   byte[8]  magic        "OBJRW\0\0\0"
  *   u32      format_ver   = 1
  *   u64      num_vertices
  *   u64      num_texcoords
@@ -22,18 +22,18 @@
  *
  * The format is stable and versioned: readers reject format_ver != 1.
  */
-#include "czmesh_internal.h"
+#include "objrw_internal.h"
 
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 
-namespace czm {
+namespace objrw {
 
 namespace {
 
-constexpr uint8_t kMagic[8] = { 'C', 'Z', 'O', 'B', 'J', 0, 0, 0 };
+constexpr uint8_t kMagic[8] = { 'O', 'B', 'J', 'R', 'W', 0, 0, 0 };
 constexpr uint32_t kFormatVer = 1;
 
 void put_u32(std::vector<uint8_t> &b, uint32_t v) {
@@ -88,9 +88,9 @@ struct Cursor {
 /*  Binary write                                                        */
 /* ================================================================== */
 
-czmesh_status write_binary(const czmesh_mesh_t *mesh, std::vector<uint8_t> &out) {
-    if (!mesh) return CZMESH_ERR_NULL_POINTER;
-    if (mesh->num_vertices == 0 || mesh->num_triangles == 0) return CZMESH_ERR_EMPTY;
+objrw_status write_binary(const objrw_mesh_t *mesh, std::vector<uint8_t> &out) {
+    if (!mesh) return OBJRW_ERR_NULL_POINTER;
+    if (mesh->num_vertices == 0 || mesh->num_triangles == 0) return OBJRW_ERR_EMPTY;
 
     out.clear();
     for (int i = 0; i < 8; ++i) out.push_back(kMagic[i]);
@@ -130,7 +130,7 @@ czmesh_status write_binary(const czmesh_mesh_t *mesh, std::vector<uint8_t> &out)
     append_i32s(mesh->tri_pos,    3 * mesh->num_triangles);
     append_i32s(mesh->tri_tex,    3 * mesh->num_triangles);
     append_i32s(mesh->tri_nor,    3 * mesh->num_triangles);
-    return CZMESH_OK;
+    return OBJRW_OK;
 }
 
 /* ================================================================== */
@@ -139,32 +139,32 @@ czmesh_status write_binary(const czmesh_mesh_t *mesh, std::vector<uint8_t> &out)
 
 static void *alloc_or_null(size_t bytes) { return bytes ? std::malloc(bytes) : nullptr; }
 
-czmesh_status read_binary(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
-    if (!mesh) return CZMESH_ERR_NULL_POINTER;
-    if (len < 8 || std::memcmp(buf, kMagic, 8) != 0) return CZMESH_ERR_UNSUPPORTED;
+objrw_status read_binary(const uint8_t *buf, size_t len, objrw_mesh_t *mesh) {
+    if (!mesh) return OBJRW_ERR_NULL_POINTER;
+    if (len < 8 || std::memcmp(buf, kMagic, 8) != 0) return OBJRW_ERR_UNSUPPORTED;
 
     Cursor c(buf + 8, len - 8);   /* skip the 8-byte magic */
     uint32_t ver = c.u32();
-    if (!c.ok || ver != kFormatVer) return CZMESH_ERR_UNSUPPORTED;
+    if (!c.ok || ver != kFormatVer) return OBJRW_ERR_UNSUPPORTED;
 
     uint64_t nv   = c.u64();
     uint64_t nvt  = c.u64();
     uint64_t nvn  = c.u64();
     uint64_t nt   = c.u64();
     uint64_t name_len = c.u64();
-    if (!c.ok) return CZMESH_ERR_UNSUPPORTED;
+    if (!c.ok) return OBJRW_ERR_UNSUPPORTED;
 
-    if (nv == 0 || nt == 0) return CZMESH_ERR_EMPTY;
+    if (nv == 0 || nt == 0) return OBJRW_ERR_EMPTY;
 
     size_t name_bytes = (size_t)name_len;
-    if (!c.need(name_bytes)) return CZMESH_ERR_UNSUPPORTED;
+    if (!c.need(name_bytes)) return OBJRW_ERR_UNSUPPORTED;
     const uint8_t *name_src = c.p + c.off;   /* name lives before the data arrays */
     c.skip(name_bytes);
 
     /* Guard against absurd sizes. */
     const uint64_t MAX_ELEMS = 1ULL << 32;
     if (nv > MAX_ELEMS || nvt > MAX_ELEMS || nvn > MAX_ELEMS || nt > MAX_ELEMS)
-        return CZMESH_ERR_UNSUPPORTED;
+        return OBJRW_ERR_UNSUPPORTED;
 
     void *pos = alloc_or_null(3 * nv * sizeof(float));
     void *tex = alloc_or_null(2 * nvt * sizeof(float));
@@ -172,13 +172,13 @@ czmesh_status read_binary(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
     void *tp  = alloc_or_null(3 * nt * sizeof(int32_t));
     void *tt  = alloc_or_null(3 * nt * sizeof(int32_t));
     void *tn  = alloc_or_null(3 * nt * sizeof(int32_t));
-    if (nv && !pos) return CZMESH_ERR_MEMORY;
-    if (nvt && !tex) { std::free(pos); return CZMESH_ERR_MEMORY; }
-    if (nvn && !nor) { std::free(pos); std::free(tex); return CZMESH_ERR_MEMORY; }
+    if (nv && !pos) return OBJRW_ERR_MEMORY;
+    if (nvt && !tex) { std::free(pos); return OBJRW_ERR_MEMORY; }
+    if (nvn && !nor) { std::free(pos); std::free(tex); return OBJRW_ERR_MEMORY; }
     if (!tp || !tt || !tn) {
         std::free(pos); std::free(tex); std::free(nor);
         std::free(tp); std::free(tt); std::free(tn);
-        return CZMESH_ERR_MEMORY;
+        return OBJRW_ERR_MEMORY;
     }
 
     auto take = [&](void *dst, uint64_t elems, size_t esz) -> bool {
@@ -200,7 +200,7 @@ czmesh_status read_binary(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
     if (!ok) {
         std::free(pos); std::free(tex); std::free(nor);
         std::free(tp); std::free(tt); std::free(tn);
-        return CZMESH_ERR_UNSUPPORTED;
+        return OBJRW_ERR_UNSUPPORTED;
     }
 
     char *name = nullptr;
@@ -209,7 +209,7 @@ czmesh_status read_binary(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
         if (!name) {
             std::free(pos); std::free(tex); std::free(nor);
             std::free(tp); std::free(tt); std::free(tn);
-            return CZMESH_ERR_MEMORY;
+            return OBJRW_ERR_MEMORY;
         }
         std::memcpy(name, name_src, name_bytes);
         name[name_bytes] = '\0';
@@ -231,14 +231,14 @@ czmesh_status read_binary(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
     mesh->num_triangles = nt;
     mesh->object_name   = name;
     mesh->has_object_name = (name != nullptr);
-    return CZMESH_OK;
+    return OBJRW_OK;
 }
 
 /* ================================================================== */
 /*  Geometry helpers                                                    */
 /* ================================================================== */
 
-void compute_normals(const czmesh_mesh_t *mesh, float *out) {
+void compute_normals(const objrw_mesh_t *mesh, float *out) {
     if (!mesh || !out) return;
     const float *P = mesh->positions;
     uint64_t nv = mesh->num_vertices;
@@ -283,4 +283,4 @@ void compute_normals(const czmesh_mesh_t *mesh, float *out) {
     }
 }
 
-} /* namespace czm */
+} /* namespace objrw */

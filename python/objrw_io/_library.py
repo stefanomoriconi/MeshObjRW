@@ -1,8 +1,8 @@
-"""Locate and load the czmesh shared library across Windows / macOS / Linux.
+"""Locate and load the objrw shared library across Windows / macOS / Linux.
 
 Search order
 ------------
-1. ``CZMESH_LIBRARY_PATH`` environment variable (explicit override).
+1. ``OBJRW_LIBRARY_PATH`` environment variable (explicit override).
 2. Common relative locations near this package (``build/Release``,
    ``build/``, ``../build/Release`` etc.) - covers a source checkout where
    the library was built with CMake.
@@ -21,15 +21,15 @@ from typing import List, Optional
 
 # Candidate file names for the shared library, in priority order.
 _LIB_NAMES = {
-    "win32": ["czmesh.dll"],
-    "darwin": ["libczmesh.dylib", "czmesh.dylib"],
-    "linux": ["libczmesh.so"],
+    "win32": ["objrw.dll"],
+    "darwin": ["libobjrw.dylib", "objrw.dylib"],
+    "linux": ["libobjrw.so"],
 }
 # Fallbacks with a version suffix (some toolchains emit these).
 _LIB_NAMES_ALT = {
-    "win32": ["czmesh.dll"],
-    "darwin": ["libczmesh.1.dylib", "libczmesh.dylib"],
-    "linux": ["libczmesh.so.1", "libczmesh.so"],
+    "win32": ["objrw.dll"],
+    "darwin": ["libobjrw.1.dylib", "libobjrw.dylib"],
+    "linux": ["libobjrw.so.1", "libobjrw.so"],
 }
 
 
@@ -40,7 +40,7 @@ def _candidate_dirs() -> List[str]:
     root = os.path.dirname(pkg)                      # repo root
     candidates = [
         os.path.dirname(here),                       # python/
-        here,                                         # python/czmesh_io/
+        here,                                         # python/objrw_io/
         os.path.join(root, "build"),
         os.path.join(root, "build", "Release"),
         os.path.join(root, "build", "Debug"),
@@ -49,7 +49,7 @@ def _candidate_dirs() -> List[str]:
         # MSVC multi-config: build/Release already covered above.
         os.path.join(root, "lib"),
         os.path.join(root, "libs"),
-        os.path.join(pkg, "czmesh_io", "bin"),
+        os.path.join(pkg, "objrw_io", "bin"),
     ]
     # De-duplicate while preserving order.
     seen = set()
@@ -72,11 +72,11 @@ def _platform_key() -> str:
 
 def _find_library_file() -> Optional[str]:
     key = _platform_key()
-    names = _LIB_NAMES.get(key, ["czmesh"])
+    names = _LIB_NAMES.get(key, ["objrw"])
     alt = _LIB_NAMES_ALT.get(key, [])
 
     # 1) explicit env override
-    env = os.environ.get("CZMESH_LIBRARY_PATH")
+    env = os.environ.get("OBJRW_LIBRARY_PATH")
     if env:
         if os.path.isfile(env):
             return env
@@ -86,8 +86,8 @@ def _find_library_file() -> Optional[str]:
                 p = os.path.join(env, n)
                 if os.path.isfile(p):
                     return p
-        raise CZMeshImportError(
-            f"CZMESH_LIBRARY_PATH is set to {env!r} but the library was not found there."
+        raise OBJRWImportError(
+            f"OBJRW_LIBRARY_PATH is set to {env!r} but the library was not found there."
         )
 
     # 2) relative search
@@ -98,18 +98,18 @@ def _find_library_file() -> Optional[str]:
                 return p
 
     # 3) system search
-    found = ctypes.util.find_library("czmesh")
+    found = ctypes.util.find_library("objrw")
     if found:
         return found
     # Some platforms name it differently.
-    found = ctypes.util.find_library("czmesh.so" if key == "linux" else "czmesh")
+    found = ctypes.util.find_library("objrw.so" if key == "linux" else "objrw")
     if found:
         return found
     return None
 
 
-class CZMeshImportError(ImportError):
-    """Raised when the czmesh shared library cannot be located or loaded."""
+class OBJRWImportError(ImportError):
+    """Raised when the objrw shared library cannot be located or loaded."""
 
 
 _lib_handle: Optional[ctypes.CDLL] = None
@@ -117,17 +117,17 @@ _resolved_path: Optional[str] = None
 
 
 def _load() -> ctypes.CDLL:
-    """Load (and cache) the czmesh shared library handle."""
+    """Load (and cache) the objrw shared library handle."""
     global _lib_handle, _resolved_path
     if _lib_handle is not None:
         return _lib_handle
 
     path = _find_library_file()
     if path is None:
-        raise CZMeshImportError(
-            "Could not find the czmesh shared library (czmesh.dll / libczmesh.so / "
-            "libczmesh.dylib). Build it with CMake first, or set the "
-            "CZMESH_LIBRARY_PATH environment variable to the full path of the "
+        raise OBJRWImportError(
+            "Could not find the objrw shared library (objrw.dll / libobjrw.so / "
+            "libobjrw.dylib). Build it with CMake first, or set the "
+            "OBJRW_LIBRARY_PATH environment variable to the full path of the "
             "library file."
         )
 
@@ -144,7 +144,7 @@ def _load() -> ctypes.CDLL:
     try:
         _lib_handle = ctypes.CDLL(path)
     except OSError as exc:  # pragma: no cover - platform specific
-        raise CZMeshImportError(
+        raise OBJRWImportError(
             f"Found {path} but failed to load it: {exc}"
         ) from exc
     _resolved_path = path
@@ -161,12 +161,12 @@ def library_path() -> str:
 def version() -> str:
     """Return the C library version string (e.g. ``'1.0.0'``)."""
     lib = _load()
-    lib.czmesh_version.restype = ctypes.c_char_p
-    return lib.czmesh_version().decode("utf-8", "replace")
+    lib.objrw_version.restype = ctypes.c_char_p
+    return lib.objrw_version().decode("utf-8", "replace")
 
 
 def build_info() -> str:
     """Return the C library build-info string (compiler, OpenMP, CUDA, ...)."""
     lib = _load()
-    lib.czmesh_build_info.restype = ctypes.c_char_p
-    return lib.czmesh_build_info().decode("utf-8", "replace")
+    lib.objrw_build_info.restype = ctypes.c_char_p
+    return lib.objrw_build_info().decode("utf-8", "replace")

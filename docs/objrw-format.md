@@ -1,7 +1,7 @@
-# `czobj` binary format specification
+# `objrw` binary format specification
 
-`czobj` is the compact, documented, versioned binary mesh format used by
-`czmesh`. It is designed to be:
+`objrw` is the compact, documented, versioned binary mesh format used by
+`objrw`. It is designed to be:
 
 - **Fast** — one contiguous little-endian byte stream, no parsing.
 - **Stable & versioned** — a `format_ver` field lets readers reject
@@ -22,7 +22,7 @@
 
 | # | Type | Size (bytes) | Field | Description |
 |---|------|--------------|-------|-------------|
-| 1 | `byte[8]` | 8 | `magic` | `"CZOBJ"` followed by three `0x00` bytes: `43 5A 4F 42 4A 00 00 00` |
+| 1 | `byte[8]` | 8 | `magic` | `"OBJRW"` followed by three `0x00` bytes: `4F 42 4A 52 57 00 00 00` |
 | 2 | `u32` | 4 | `format_ver` | Format version. Readers require `== 1`. |
 | 3 | `u64` | 8 | `num_vertices` | Number of position vectors. |
 | 4 | `u64` | 8 | `num_texcoords` | Number of texture-coordinate pairs (0 if none). |
@@ -72,13 +72,13 @@ is exactly:
 = 580 bytes
 ```
 
-Use `czmesh_cli info <file>` or a hex dump to verify a concrete file.
+Use `objrw_cli info <file>` or a hex dump to verify a concrete file.
 
 ## Auto-detection
 
-`czmesh_read()` sniffs the first 8 bytes:
+`objrw_read()` sniffs the first 8 bytes:
 
-- If they equal `"CZOBJ\0\0\0"` → binary `czobj` reader.
+- If they equal `"OBJRW\0\0\0"` → binary `objrw` reader.
 - Otherwise → ASCII Wavefront OBJ reader.
 
 This is why a single `read` call handles both encodings.
@@ -88,15 +88,15 @@ This is why a single `read` call handles both encodings.
 A conforming reader **must** enforce all of:
 
 1. File length ≥ the header size before reading the header.
-2. `magic` == `43 5A 4F 42 4A 00 00 00`.
+2. `magic` == `4F 42 4A 52 57 00 00 00`.
 3. `format_ver` == `1`.
 4. Every array read is bounds-checked against the remaining buffer
    (a `Cursor` that fails a `need(k)` check aborts cleanly).
 5. No `i32` index in `tri_pos` / `tri_tex` / `tri_nor` is out of range of its
-   array (`>=` its count → `CZMESH_ERR_INCONSISTENT`).
+   array (`>=` its count → `OBJRW_ERR_INCONSISTENT`).
 
-`czmesh`'s reader implements all five and returns a specific status code plus
-a message available from `czmesh_last_error()`.
+`objrw`'s reader implements all five and returns a specific status code plus
+a message available from `objrw_last_error()`.
 
 ## Versioning policy
 

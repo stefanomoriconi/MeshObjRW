@@ -1,5 +1,5 @@
 /*
- * czmesh_ascii.cpp
+ * objrw_ascii.cpp
  * ----------------
  * ASCII Wavefront OBJ reader and writer for triangular meshes.
  *
@@ -15,7 +15,7 @@
  *   * emits v / vt / vn / f lines with %.9g formatting (exact float32
  *     round-trip), and an optional "o <name>" header
  */
-#include "czmesh_internal.h"
+#include "objrw_internal.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -27,7 +27,7 @@
 #include <omp.h>
 #endif
 
-namespace czm {
+namespace objrw {
 
 /* ================================================================== */
 /*  File I/O                                                          */
@@ -230,8 +230,8 @@ void parse_chunk(const char *base, size_t start, size_t end, ChunkResult &r) {
 /*  parse_ascii                                                        */
 /* ================================================================== */
 
-czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
-    if (!mesh) { return CZMESH_ERR_NULL_POINTER; }
+objrw_status parse_ascii(const uint8_t *buf, size_t len, objrw_mesh_t *mesh) {
+    if (!mesh) { return OBJRW_ERR_NULL_POINTER; }
     const char *base = (const char *)buf;
 
 #if defined(_OPENMP)
@@ -286,14 +286,14 @@ czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
     }
 
     if (total_v == 0 || total_tri == 0)
-        return CZMESH_ERR_EMPTY;
+        return OBJRW_ERR_EMPTY;
 
     /* ---- Allocate output SoA buffers ---- */
     auto alloc = [](size_t n, size_t elem) -> void * { return std::malloc(n * elem); };
     if (!alloc(total_v * 3, sizeof(float)) || !alloc(total_vt * 2, sizeof(float)) ||
         !alloc(total_vn * 3, sizeof(float)) || !alloc(total_tri * 3, sizeof(int32_t)) ||
         !alloc(total_tri * 3, sizeof(int32_t)) || !alloc(total_tri * 3, sizeof(int32_t)))
-        return CZMESH_ERR_MEMORY;
+        return OBJRW_ERR_MEMORY;
 
     float  *o_v   = (float *)alloc(total_v * 3, sizeof(float));
     float  *o_vt  = (float *)alloc(total_vt * 2, sizeof(float));
@@ -305,7 +305,7 @@ czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
     /* ---- Phase 2: concatenate attributes + resolve/triangulate faces ---- */
     uint64_t v_off = 0, vt_off = 0, vn_off = 0, tri_off = 0;
     bool err = false;
-    czmesh_status err_code = CZMESH_OK;
+    objrw_status err_code = OBJRW_OK;
     for (int i = 0; i < nthreads && !err; ++i) {
         ChunkResult &r = results[(size_t)i];
 
@@ -327,7 +327,7 @@ czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
                 int32_t rt = r.corners[3 * (cstart + c) + 1];
                 int32_t rn = r.corners[3 * (cstart + c) + 2];
                 auto resolve = [](int32_t raw, uint64_t total) -> int64_t {
-                    if (raw == 0) return -1; /* absent -> CZMESH_NONE */
+                    if (raw == 0) return -1; /* absent -> OBJRW_NONE */
                     int64_t idx = (raw > 0) ? (int64_t)(raw - 1)
                                            : (int64_t)total + (int64_t)raw;
                     return idx;
@@ -336,13 +336,13 @@ czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
                 int64_t it = resolve(rt, total_vt);
                 int64_t in = resolve(rn, total_vn);
                 if (rp != 0 && (ip < 0 || ip >= (int64_t)total_v)) {
-                    err = true; err_code = CZMESH_ERR_INCONSISTENT; break;
+                    err = true; err_code = OBJRW_ERR_INCONSISTENT; break;
                 }
                 if (rt != 0 && (it < 0 || it >= (int64_t)total_vt)) {
-                    err = true; err_code = CZMESH_ERR_INCONSISTENT; break;
+                    err = true; err_code = OBJRW_ERR_INCONSISTENT; break;
                 }
                 if (rn != 0 && (in < 0 || in >= (int64_t)total_vn)) {
-                    err = true; err_code = CZMESH_ERR_INCONSISTENT; break;
+                    err = true; err_code = OBJRW_ERR_INCONSISTENT; break;
                 }
                 r.corners[3 * (cstart + c) + 0] = (int32_t)ip;
                 r.corners[3 * (cstart + c) + 1] = (int32_t)it;
@@ -404,16 +404,16 @@ czmesh_status parse_ascii(const uint8_t *buf, size_t len, czmesh_mesh_t *mesh) {
             break;
         }
     }
-    return CZMESH_OK;
+    return OBJRW_OK;
 }
 
 /* ================================================================== */
 /*  write_ascii                                                        */
 /* ================================================================== */
 
-czmesh_status write_ascii(const czmesh_mesh_t *mesh, std::string &out) {
-    if (!mesh) return CZMESH_ERR_NULL_POINTER;
-    if (mesh->num_vertices == 0 || mesh->num_triangles == 0) return CZMESH_ERR_EMPTY;
+objrw_status write_ascii(const objrw_mesh_t *mesh, std::string &out) {
+    if (!mesh) return OBJRW_ERR_NULL_POINTER;
+    if (mesh->num_vertices == 0 || mesh->num_triangles == 0) return OBJRW_ERR_EMPTY;
 
     /* Reserve a rough upper bound to reduce reallocations. */
     size_t est = 64 +
@@ -431,7 +431,7 @@ czmesh_status write_ascii(const czmesh_mesh_t *mesh, std::string &out) {
 
     out.push_back('#');
     out.push_back(' ');
-    out.append("generated by czmesh ");
+    out.append("generated by objrw ");
     out.push_back('\n');
 
     if (mesh->has_object_name && mesh->object_name) {
@@ -471,20 +471,20 @@ czmesh_status write_ascii(const czmesh_mesh_t *mesh, std::string &out) {
             char tmp[32];
             std::snprintf(tmp, sizeof(tmp), "%d", (int)(p + 1)); /* 1-based out */
             out.append(tmp);
-            if (t != CZMESH_NONE && n != CZMESH_NONE) {
+            if (t != OBJRW_NONE && n != OBJRW_NONE) {
                 std::snprintf(tmp, sizeof(tmp), "/%d/%d", (int)(t + 1), (int)(n + 1));
                 out.append(tmp);
-            } else if (t != CZMESH_NONE) {
+            } else if (t != OBJRW_NONE) {
                 std::snprintf(tmp, sizeof(tmp), "/%d", (int)(t + 1));
                 out.append(tmp);
-            } else if (n != CZMESH_NONE) {
+            } else if (n != OBJRW_NONE) {
                 std::snprintf(tmp, sizeof(tmp), "//%d", (int)(n + 1));
                 out.append(tmp);
             }
         }
         out.push_back('\n');
     }
-    return CZMESH_OK;
+    return OBJRW_OK;
 }
 
-} /* namespace czm */
+} /* namespace objrw */

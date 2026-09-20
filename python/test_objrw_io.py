@@ -1,12 +1,12 @@
-"""End-to-end tests for the czmesh_io Python wrapper.
+"""End-to-end tests for the objrw_io Python wrapper.
 
-Builds a unit cube in Python, writes it as both ASCII OBJ and binary .czobj,
+Builds a unit cube in Python, writes it as both ASCII OBJ and binary .objrw,
 reads both back, and asserts geometry / derived-quantity equality, object-name
 round-trip, bounding box, area/volume and recomputed normals.
 
 Run directly (no pytest required):
 
-    python python/test_czmesh_io.py
+    python python/test_objrw_io.py
 """
 
 from __future__ import annotations
@@ -15,19 +15,19 @@ import os
 import sys
 import tempfile
 
-# Make `import czmesh_io` work regardless of the current directory.
+# Make `import objrw_io` work regardless of the current directory.
 _here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _here)
 
-import czmesh_io  # noqa: E402
-from czmesh_io import CZMeshError  # noqa: E402
+import objrw_io  # noqa: E402
+from objrw_io import OBJRWError  # noqa: E402
 
 
 def _approx(a: float, b: float, tol: float = 1e-5) -> bool:
     return abs(a - b) <= tol
 
 
-def _cube(m: "czmesh_io.Mesh") -> None:
+def _cube(m: "objrw_io.Mesh") -> None:
     """Populate a unit cube [0,1]^3 with 8 vertices and 12 triangles."""
     verts = [
         (0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0),
@@ -52,14 +52,14 @@ def _cube(m: "czmesh_io.Mesh") -> None:
 
 
 def test_library_loads() -> None:
-    p = czmesh_io.library_path()
+    p = objrw_io.library_path()
     print(f"[ok] library: {p}")
-    print(f"[ok] version: {czmesh_io.version()}")
-    print(f"[ok] build  : {czmesh_io.build_info()}")
+    print(f"[ok] version: {objrw_io.version()}")
+    print(f"[ok] build  : {objrw_io.build_info()}")
 
 
 def test_build_and_derived() -> None:
-    m = czmesh_io.Mesh()
+    m = objrw_io.Mesh()
     _cube(m)
     m.object_name = "python_cube"
 
@@ -86,10 +86,10 @@ def test_build_and_derived() -> None:
 
 def test_roundtrip(tmpdir: str) -> None:
     src = os.path.join(tmpdir, "cube.obj")
-    bin_path = os.path.join(tmpdir, "cube.czobj")
+    bin_path = os.path.join(tmpdir, "cube.objrw")
 
     # Build reference mesh, save both encodings.
-    ref = czmesh_io.Mesh()
+    ref = objrw_io.Mesh()
     _cube(ref)
     ref.object_name = "roundtrip_cube"
     ref.write_ascii(src)
@@ -97,7 +97,7 @@ def test_roundtrip(tmpdir: str) -> None:
     ref.close()
 
     for path in (src, bin_path):
-        m = czmesh_io.read(path)  # auto-detect
+        m = objrw_io.read(path)  # auto-detect
         assert m.num_vertices == 8, (path, m.num_vertices)
         assert m.num_triangles == 12, (path, m.num_triangles)
         assert m.object_name == "roundtrip_cube", (path, m.object_name)
@@ -112,19 +112,19 @@ def test_roundtrip(tmpdir: str) -> None:
 
 def test_explicit_readers(tmpdir: str) -> None:
     src = os.path.join(tmpdir, "r.obj")
-    bin_path = os.path.join(tmpdir, "r.czobj")
-    ref = czmesh_io.Mesh()
+    bin_path = os.path.join(tmpdir, "r.objrw")
+    ref = objrw_io.Mesh()
     _cube(ref)
     ref.object_name = "explicit"
     ref.write_ascii(src)
     ref.write_binary(bin_path)
     ref.close()
 
-    a = czmesh_io.read_ascii(src)
+    a = objrw_io.read_ascii(src)
     assert a.num_triangles == 12
     a.close()
 
-    b = czmesh_io.read_binary(bin_path)
+    b = objrw_io.read_binary(bin_path)
     assert b.num_triangles == 12
     assert b.object_name == "explicit"
     b.close()
@@ -134,15 +134,15 @@ def test_explicit_readers(tmpdir: str) -> None:
 def test_error_on_missing_file(tmpdir: str) -> None:
     missing = os.path.join(tmpdir, "does_not_exist.obj")
     try:
-        czmesh_io.read(missing)
-    except CZMeshError as e:
-        print(f"[ok] missing file raises CZMeshError (code={e.code})")
+        objrw_io.read(missing)
+    except OBJRWError as e:
+        print(f"[ok] missing file raises OBJRWError (code={e.code})")
         return
-    raise AssertionError("expected CZMeshError for missing file")
+    raise AssertionError("expected OBJRWError for missing file")
 
 
 def main() -> int:
-    print("czmesh_io end-to-end tests")
+    print("objrw_io end-to-end tests")
     print("=" * 40)
     test_library_loads()
 
