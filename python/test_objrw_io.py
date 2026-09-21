@@ -141,6 +141,63 @@ def test_error_on_missing_file(tmpdir: str) -> None:
     raise AssertionError("expected OBJRWError for missing file")
 
 
+def test_readOBJ_writeOBJ(tmpdir: str) -> None:
+    src = os.path.join(tmpdir, "in.obj")
+    ascii_out = os.path.join(tmpdir, "out_ascii.obj")
+    bin_out = os.path.join(tmpdir, "out_binary.objrw")
+
+    ref = objrw_io.Mesh()
+    _cube(ref)
+    ref.object_name = "objrw_cube"
+    ref.write_ascii(src)
+    ref.close()
+
+    # Read via the high-level entry point (auto-detects ASCII).
+    mesh_in = objrw_io.readOBJ(src)
+    assert mesh_in.num_vertices == 8, mesh_in.num_vertices
+    assert mesh_in.num_triangles == 12, mesh_in.num_triangles
+    assert mesh_in.object_name == "objrw_cube", mesh_in.object_name
+
+    # writeOBJ returns the Mesh (supports `m = objrw_io.writeOBJ(...)`).
+    m_ascii = objrw_io.writeOBJ(mesh_in, ascii_out, flagBinary=False)
+    assert m_ascii is mesh_in, "writeOBJ should return the Mesh"
+    assert os.path.isfile(ascii_out), "ASCII output missing"
+
+    m_bin = objrw_io.writeOBJ(mesh_in, bin_out, flagBinary=True)
+    assert m_bin is mesh_in, "writeOBJ should return the Mesh"
+    assert os.path.isfile(bin_out), "binary output missing"
+
+    # readOBJ transparently handles both encodings.
+    for path in (ascii_out, bin_out):
+        m = objrw_io.readOBJ(path)
+        assert m.num_vertices == 8, (path, m.num_vertices)
+        assert m.num_triangles == 12, (path, m.num_triangles)
+        mn, mx = m.bounding_box()
+        assert _approx(mn[0], 0.0) and _approx(mx[2], 1.0), (path, mn, mx)
+        m.close()
+
+    a, v = mesh_in.stats()
+    assert _approx(a, 6.0) and _approx(abs(v), 1.0), (a, v)
+    mesh_in.close()
+    print(f"[ok] readOBJ/writeOBJ ascii={os.path.getsize(ascii_out)}b "
+          f"binary={os.path.getsize(bin_out)}b")
+
+    # Error handling on bad arguments.
+    for bad_call in (
+        lambda: objrw_io.readOBJ(123),
+        lambda: objrw_io.readOBJ(""),
+        lambda: objrw_io.writeOBJ(mesh_in, 123),
+        lambda: objrw_io.writeOBJ(mesh_in, ascii_out, "yes"),
+        lambda: objrw_io.writeOBJ(123, ascii_out),
+    ):
+        try:
+            bad_call()
+        except TypeError:
+            pass
+        else:
+            raise AssertionError("expected TypeError")
+
+
 def main() -> int:
     print("objrw_io end-to-end tests")
     print("=" * 40)
@@ -151,6 +208,7 @@ def main() -> int:
         test_roundtrip(tmpdir)
         test_explicit_readers(tmpdir)
         test_error_on_missing_file(tmpdir)
+        test_readOBJ_writeOBJ(tmpdir)
 
     print("=" * 40)
     print("ALL PYTHON TESTS PASSED")

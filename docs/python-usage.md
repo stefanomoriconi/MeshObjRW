@@ -1,13 +1,47 @@
 # `objrw_io` Python usage
 
 `objrw_io` is a thin, **dependency-free** `ctypes` wrapper around the
-`objrw` shared library. It exposes a `Mesh` object plus module-level
-`read` / `write` helpers, and requires only the standard library
+`objrw` shared library. The primary, self-contained API is two functions —
+`objrw_io.readOBJ(path)` to import a mesh and `objrw_io.writeOBJ(mesh, path,
+flagBinary=...)` to export it — plus a `Mesh` object and lower-level
+`read` / `write` helpers. Only the standard library is required
 (`ctypes`, `os`, `pathlib`).
 
 > **No numpy required.** Vertices are accessed as plain Python lists of
 > `(x, y, z)` tuples. For very large meshes you can still pass the raw
 > arrays through `ctypes` if you want, but the API is intentionally simple.
+
+## Primary API: `readOBJ` / `writeOBJ`
+
+A single `import objrw_io` is all that is needed to read and write a
+triangular OBJ mesh:
+
+```python
+import objrw_io
+
+# Import — encoding is auto-detected (ASCII .obj or binary .objrw).
+mesh_in = objrw_io.readOBJ("path/to/meshFile.obj")
+
+# Export — ASCII OBJ by default, compact binary when flagBinary=True.
+mesh_out = objrw_io.writeOBJ(mesh_in, "path/to/output/meshFile.obj",
+                             flagBinary=False)   # ASCII
+# mesh_out = objrw_io.writeOBJ(mesh_in, "out.objrw", flagBinary=True)
+```
+
+Both functions are self-contained and validate their arguments:
+
+| Function | Signature | Notes |
+|----------|-----------|-------|
+| `readOBJ` | `objrw_io.readOBJ(path) -> Mesh` | Auto-detects ASCII vs binary. Returns a new `Mesh`. |
+| `writeOBJ` | `objrw_io.writeOBJ(mesh, path, flagBinary=False) -> Mesh` | `flagBinary=False` → ASCII `.obj`; `True` → binary `.objrw`. Returns the same `Mesh` (chainable). |
+
+**Error handling**
+
+* `TypeError` — raised immediately if `path` is not a non-empty string,
+  `mesh` is not a `Mesh`, or `flagBinary` is not a boolean.
+* `objrw_io.OBJRWError` — raised on I/O or parse failure. It carries a
+  numeric `.code` and a human-readable message (e.g. `code=3` for a file
+  that could not be opened).
 
 ## Installing / locating the library
 
@@ -36,7 +70,11 @@ export PATH="$PWD/build:$PATH"
 export OBJRW_LIBRARY_PATH="$PWD/build/libobjrw.dylib"   # .so on Linux
 ```
 
-## Quick start
+## Lower-level API (explicit encoding)
+
+For explicit control over the encoding, the module-level `read` / `read_ascii`
+/ `read_binary` / `write_ascii` / `write_binary` helpers and the `Mesh` object
+are available. `read(path)` auto-detects the encoding just like `readOBJ`.
 
 ```python
 import objrw_io
@@ -96,8 +134,12 @@ m.write_ascii("built.obj")
 
 ### Error handling
 
-All failures raise `objrw_io.OBJRWError`, which carries a numeric `.code`
-(matching the C status enum) and a `.message` (from `objrw_last_error()`).
+All I/O and parse failures raise `objrw_io.OBJRWError`, which carries a
+numeric `.code` (matching the C status enum) and a `.message` (from
+`objrw_last_error()`). The high-level `readOBJ` / `writeOBJ` helpers also
+validate their arguments up front and raise a plain `TypeError` if `path`
+is not a non-empty string, `mesh` is not a `Mesh`, or `flagBinary` is not a
+boolean.
 
 ```python
 from objrw_io import OBJRWError
@@ -140,8 +182,9 @@ python python/test_objrw_io.py
 
 The suite builds a reference unit cube in-process, writes it to both
 encodings, and verifies round-trip fidelity (counts, bounding box, area,
-|volume|, name preservation). It ends with `ALL PYTHON TESTS PASSED` on
-success.
+|volume|, name preservation). It also exercises the high-level
+`readOBJ` / `writeOBJ` API (ASCII and binary round-trip, plus `TypeError`
+argument validation). It ends with `ALL PYTHON TESTS PASSED` on success.
 
 ## Troubleshooting
 

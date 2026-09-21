@@ -246,3 +246,124 @@ def write_binary(path: str, mesh: Mesh) -> None:
         mesh.write_binary(path)
     else:
         raise TypeError("write_binary expects a objrw_io.Mesh instance")
+
+
+# ============================================================================
+#  Primary high-level API:  readOBJ / writeOBJ
+# ============================================================================
+#
+# These two functions are the intended, self-contained way to use the package
+# from a script -- one ``import objrw_io`` is all that is required:
+#
+#     import objrw_io
+#
+#     mesh_in  = objrw_io.readOBJ("path/to/meshFile.obj")
+#     objrw_io.writeOBJ(mesh_in, "path/out/meshFile.obj", flagBinary=True)
+#
+# ``readOBJ`` transparently accepts either an ASCII ``.obj`` file or a binary
+# ``.objrw`` file (the encoding is auto-detected).  ``writeOBJ`` emits an
+# ASCII ``.obj`` by default, or a compact binary ``.objrw`` file when
+# ``flagBinary=True``.  Both validate their arguments and raise a clear
+# ``objrw_io.OBJRWError`` (with a numeric ``.code``) on I/O or parse failure.
+
+
+def _check_path(path: str) -> str:
+    if not isinstance(path, str) or not path:
+        raise TypeError("path must be a non-empty string, got %r" % (path,))
+    return path
+
+
+def readOBJ(path: str, library: Optional[OBJRWLibrary] = None) -> Mesh:
+    """Import a triangular OBJ mesh from a file and return a :class:`Mesh`.
+
+    Parameters
+    ----------
+    path:
+        Path to an ASCII Wavefront ``.obj`` file **or** a binary ``.objrw``
+        file.  The encoding is auto-detected, so the same call works for both.
+    library:
+        Optional shared-library handle to reuse.  Normally not needed.
+
+    Returns
+    -------
+    Mesh
+        A new, fully-populated :class:`Mesh`.  It owns its memory and is
+        released when :meth:`Mesh.close` is called or the object is garbage
+        collected.
+
+    Raises
+    ------
+    TypeError
+        If ``path`` is not a non-empty string.
+    OBJRWError
+        If the file cannot be opened, read, or parsed.  The exception carries
+        a numeric ``.code`` and a human-readable message (see
+        ``objrw_io.OBJRWError``).
+
+    Example
+    -------
+    >>> import objrw_io
+    >>> mesh_in = objrw_io.readOBJ("path/to/meshFile.obj")
+    >>> print(mesh_in.num_vertices, mesh_in.num_triangles)
+    """
+    _check_path(path)
+    m = _new_mesh(library)
+    try:
+        m._lib.read(path, m._ptr)
+    except Exception:
+        m.close()
+        raise
+    return m
+
+
+def writeOBJ(mesh: Mesh,
+             path: str,
+             flagBinary: bool = False,
+             library: Optional[OBJRWLibrary] = None) -> Mesh:
+    """Export a :class:`Mesh` to a file and return it for easy chaining.
+
+    Parameters
+    ----------
+    mesh:
+        The :class:`Mesh` to write.
+    path:
+        Destination file path.
+    flagBinary:
+        ``False`` (default) writes an ASCII Wavefront ``.obj`` file;
+        ``True`` writes the compact binary ``.objrw`` format.  Must be a
+        boolean -- any other value is rejected with :class:`TypeError`.
+    library:
+        Optional shared-library handle to reuse.  Normally not needed.
+
+    Returns
+    -------
+    Mesh
+        The same ``mesh`` instance, so calls can be assigned or chained::
+
+            mesh_out = objrw_io.writeOBJ(mesh_in, "out/meshFile.obj",
+                                         flagBinary=True)
+
+    Raises
+    ------
+    TypeError
+        If ``mesh`` is not a :class:`Mesh`, ``path`` is not a non-empty
+        string, or ``flagBinary`` is not a boolean.
+    OBJRWError
+        If the file cannot be written.  Carries a numeric ``.code`` and a
+        human-readable message.
+
+    Example
+    -------
+    >>> import objrw_io
+    >>> mesh_out = objrw_io.writeOBJ(mesh_in, "out/meshFile.obj", flagBinary=False)
+    """
+    if not isinstance(mesh, Mesh):
+        raise TypeError("writeOBJ expects a objrw_io.Mesh instance as first argument")
+    _check_path(path)
+    if not isinstance(flagBinary, bool):
+        raise TypeError("flagBinary must be a boolean (True or False)")
+    if flagBinary:
+        mesh.write_binary(path)
+    else:
+        mesh.write_ascii(path)
+    return mesh

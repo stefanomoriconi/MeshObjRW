@@ -12,7 +12,7 @@ built on `ctypes`.
 | ASCII Wavefront **OBJ** | `.obj` | The canonical text format. `v`, `vt`, `vn`, `f`; 1-based & negative indices; per-corner `v/vt//vn` syntax; n-gons fan-triangulated. |
 | Binary **objrw** (objrw) | `.objrw` | Compact, documented, little-endian, versioned. Auto-detected on read via an 8-byte magic header. |
 
-A single read call, `objrw_read()` / `objrw_io.read()`, **auto-detects**
+A single read call, `objrw_read()` / `objrw_io.readOBJ()`, **auto-detects**
 the encoding by sniffing the file header, so the same code transparently
 handles both ASCII and binary files.
 
@@ -36,8 +36,10 @@ package does not clash with other dependencies in larger projects.
   behind `OBJRW_ENABLE_CUDA` (OFF by default, transparent CPU fallback).
 - **Geometry helpers** — bounding box, surface area, signed volume, and
   area-weighted per-vertex normal recomputation.
-- **Python** — `objrw_io`, a thin, dependency-free `ctypes` wrapper exposing
-  a `Mesh` object and `read` / `write` helpers. No numpy required.
+- **Python** — `objrw_io`, a thin, dependency-free `ctypes` wrapper whose
+  primary API is `objrw_io.readOBJ(path)` / `objrw_io.writeOBJ(mesh, path,
+  flagBinary=...)`, plus a `Mesh` object and lower-level helpers. No numpy
+  required.
 - **Accurate & tested** — a C test suite (53 checks) plus Python end-to-end
   tests, all runnable on CI across the three platforms.
 
@@ -176,22 +178,29 @@ objrw_cli info cube.objrw
 
 `objrw_io` is a thin `ctypes` wrapper. It locates the shared library
 automatically (source checkout layout, `OBJRW_LIBRARY_PATH`, or the system
-path).
+path). A single `import objrw_io` is all that is needed:
 
 ```python
 import objrw_io
 
-# Auto-detect encoding (ASCII .obj or binary .objrw) on read.
-m = objrw_io.read("model.obj")
-print(m.num_vertices, m.num_triangles)
-print(m.bounding_box())      # (min, max)
-print(m.stats())             # (area, signed_volume)
+# Import — encoding is auto-detected (ASCII .obj or binary .objrw).
+mesh_in = objrw_io.readOBJ("path/to/meshFile.obj")
+print(mesh_in.num_vertices, mesh_in.num_triangles)
+print(mesh_in.bounding_box())      # (min, max)
+print(mesh_in.stats())             # (area, signed_volume)
 
-m.compute_normals()          # area-weighted per-vertex normals
+mesh_in.compute_normals()          # area-weighted per-vertex normals
 
-m.write("model.objrw")        # save as binary (auto-detected later)
-m2 = objrw_io.read("model.objrw")
+# Export — ASCII OBJ by default, compact binary when flagBinary=True.
+mesh_out = objrw_io.writeOBJ(mesh_in, "path/to/output/meshFile.obj",
+                             flagBinary=False)          # ASCII .obj
+# mesh_out = objrw_io.writeOBJ(mesh_in, "out.objrw", flagBinary=True)
 ```
+
+`readOBJ` / `writeOBJ` validate their arguments and raise `TypeError` on
+bad inputs or `objrw_io.OBJRWError` (with a numeric `.code`) on I/O or parse
+failure. The lower-level `objrw_io.read` / `write_ascii` / `write_binary`
+helpers and the `Mesh` object remain available for explicit control.
 
 Building a mesh from scratch:
 
