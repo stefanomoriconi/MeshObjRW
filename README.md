@@ -45,6 +45,40 @@ package does not clash with other dependencies in larger projects.
 
 ---
 
+## Getting started (Python, 3 steps)
+
+The whole job is `import objrw_io`, then `readOBJ` / `writeOBJ`. No `pip
+install`, no numpy — the only prerequisite is building the C library once.
+
+```python
+import objrw_io
+
+mesh_in  = objrw_io.readOBJ("path/to/meshFile.obj")     # read (auto-detects .obj / .objrw)
+mesh_out = objrw_io.writeOBJ(mesh_in, "path/to/out.obj")          # write ASCII .obj
+# mesh_out = objrw_io.writeOBJ(mesh_in, "out.objrw", flagBinary=True)  # or compact binary
+```
+
+That's it. `readOBJ` transparently accepts an ASCII `.obj` **or** a binary
+`.objrw` file; `writeOBJ` returns the same `Mesh`, so it can be assigned or
+chained. Errors are `TypeError` for bad arguments and `objrw_io.OBJRWError`
+(with a numeric `.code`) for I/O or parse problems.
+
+To run this today, build once, then run the self-contained kick-off script:
+
+```powershell
+# 1. build the C library (Windows example; see below for macOS / Linux)
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+
+# 2. run the kick-off (works with no input file — it builds a cube for you)
+python examples/objrw_kickoff.py            # self-contained demo
+python examples/objrw_kickoff.py myMesh.obj # or start from your own .obj
+```
+
+A full reference lives in [`docs/python-usage.md`](docs/python-usage.md).
+
+---
+
 ## Repository layout
 
 ```
@@ -70,6 +104,8 @@ package does not clash with other dependencies in larger projects.
 │   │   ├── _ctypes.py        # prototype declarations + wrappers
 │   │   └── _mesh.py          # high-level Mesh object
 │   └── test_objrw_io.py     # Python end-to-end tests
+├── examples/
+│   └── objrw_kickoff.py     # Minimal, runnable read/write kick-off script
 ├── docs/                     # detailed documentation
 ├── CMakeLists.txt
 ├── LICENSE                   # MIT

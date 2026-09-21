@@ -11,6 +11,20 @@ flagBinary=...)` to export it — plus a `Mesh` object and lower-level
 > `(x, y, z)` tuples. For very large meshes you can still pass the raw
 > arrays through `ctypes` if you want, but the API is intentionally simple.
 
+## Kick-off (30-second demo)
+
+There is a single, self-contained script you can run with no input data — it
+builds a unit cube in memory, reads it back, and writes it in both encodings:
+
+```powershell
+python examples/objrw_kickoff.py              # no external files needed
+python examples/objrw_kickoff.py myMesh.obj   # or start from your own .obj
+```
+
+> The only prerequisite is that the C library has been built once
+> (`cmake --build build --config Release`). The loader finds it
+> automatically — see "Installing / locating the library" below.
+
 ## Primary API: `readOBJ` / `writeOBJ`
 
 A single `import objrw_io` is all that is needed to read and write a
