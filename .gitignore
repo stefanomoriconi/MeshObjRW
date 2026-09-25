@@ -1,6 +1,7 @@
 # ---- Build directories -------------------------------------------------
 build/
 build-*/
+build_*/
 cmake-build-*/
 out/
 dist/
@@ -53,5 +54,4 @@ Thumbs.db
 desktop.ini
 
 # Keep any intentionally-committed sample meshes (un-ignore on demand):
-# !samples/**/*.obj
-# !samples/**/*.objrw
+!docs/sample_meshes/*.obj

@@ -86,7 +86,10 @@ endif()
 # -----------------------------------------------------------------------------
 if(OBJRW_ENABLE_CUDA)
     enable_language(CUDA)
-    list(APPEND OBJRW_CORE_SOURCES src/objrw_cuda.cu)
+    # NOTE: add_library() above already consumed OBJRW_CORE_SOURCES, so
+    # appending to that list here would have no effect on the target.
+    # Use target_sources() to actually add the CUDA translation unit.
+    target_sources(objrw PRIVATE src/objrw_cuda.cu)
     target_compile_definitions(objrw PRIVATE OBJRW_ENABLE_CUDA)
     set_target_properties(objrw PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
     message(STATUS "objrw: CUDA enabled")

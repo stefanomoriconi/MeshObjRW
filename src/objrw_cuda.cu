@@ -48,6 +48,31 @@ bool check(cudaError_t e) {
     return true;
 }
 
+/* CUDA's built-in atomicMin/atomicMax do not have float overloads. Implement
+ * them via atomicCAS on the bit pattern, matching the standard idiom (see
+ * NVIDIA forums / CUDA C++ Programming Guide "Atomic Functions" appendix). */
+__device__ float atomicMinFloat(float *addr, float value) {
+    int *addr_as_i = (int *)addr;
+    int old = *addr_as_i, assumed;
+    while (value < __int_as_float(old)) {
+        assumed = old;
+        old = atomicCAS(addr_as_i, assumed, __float_as_int(value));
+        if (assumed == old) break;
+    }
+    return __int_as_float(old);
+}
+
+__device__ float atomicMaxFloat(float *addr, float value) {
+    int *addr_as_i = (int *)addr;
+    int old = *addr_as_i, assumed;
+    while (value > __int_as_float(old)) {
+        assumed = old;
+        old = atomicCAS(addr_as_i, assumed, __float_as_int(value));
+        if (assumed == old) break;
+    }
+    return __int_as_float(old);
+}
+
 } // namespace
 
 bool cuda_available() {
@@ -67,9 +92,9 @@ __global__ void bbox_kernel(const float *positions, uint64_t n,
     float v0 = positions[3 * i + 0];
     float v1 = positions[3 * i + 1];
     float v2 = positions[3 * i + 2];
-    atomicMin(&d_min[0], v0); atomicMax(&d_max[0], v0);
-    atomicMin(&d_min[1], v1); atomicMax(&d_max[1], v1);
-    atomicMin(&d_min[2], v2); atomicMax(&d_max[2], v2);
+    atomicMinFloat(&d_min[0], v0); atomicMaxFloat(&d_max[0], v0);
+    atomicMinFloat(&d_min[1], v1); atomicMaxFloat(&d_max[1], v1);
+    atomicMinFloat(&d_min[2], v2); atomicMaxFloat(&d_max[2], v2);
 }
 
 objrw_status cuda_bounding_box(const float *positions, uint64_t n,

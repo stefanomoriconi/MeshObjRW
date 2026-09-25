@@ -20,7 +20,8 @@
  * The public symbols all carry the `objrw_` prefix to avoid collisions when
  * the library is embedded in larger projects.
  *
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: LicenseRef-CC-BY-NC-4.0
+ * (Free for research/non-commercial use; see top-level LICENSE.)
  */
 
 #ifndef OBJRW_H
